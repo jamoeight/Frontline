@@ -1,0 +1,64 @@
+.trend-explorer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.trend-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.window-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.window-selector button {
+  padding: 8px 16px;
+  border: 1px solid #3a3d45;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.window-selector button:hover {
+  border-color: #636efa;
+  color: #e1e4e8;
+}
+
+.window-selector button.active {
+  background: #636efa;
+  border-color: #636efa;
+  color: #fff;
+}
+
+.chart-container {
+  background: #161b22;
+  border: 1px solid #2a2d35;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status {
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.status.error {
+  color: #ef553b;
+}
