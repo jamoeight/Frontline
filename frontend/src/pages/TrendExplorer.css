@@ -16,12 +16,20 @@
   font-weight: 600;
 }
 
-.window-selector {
+.controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.window-selector,
+.chart-mode-selector {
   display: flex;
   gap: 8px;
 }
 
-.window-selector button {
+.window-selector button,
+.chart-mode-selector button {
   padding: 8px 16px;
   border: 1px solid #3a3d45;
   border-radius: 6px;
@@ -32,12 +40,14 @@
   transition: all 0.2s;
 }
 
-.window-selector button:hover {
+.window-selector button:hover,
+.chart-mode-selector button:hover {
   border-color: #636efa;
   color: #e1e4e8;
 }
 
-.window-selector button.active {
+.window-selector button.active,
+.chart-mode-selector button.active {
   background: #636efa;
   border-color: #636efa;
   color: #fff;
