@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useTrends } from '../hooks/useTrends'
 import LineChart from '../components/LineChart'
 import BubbleChart from '../components/BubbleChart'
+import Heatmap from '../components/Heatmap'
 import './TrendExplorer.css'
 
 type TimeWindow = 30 | 60 | 90
-type ChartMode = 'line' | 'bubble'
+type ChartMode = 'line' | 'bubble' | 'heatmap'
 
 function TrendExplorer() {
   const [window, setWindow] = useState<TimeWindow>(90)
@@ -30,6 +31,12 @@ function TrendExplorer() {
             >
               Bubble
             </button>
+            <button
+              className={chartMode === 'heatmap' ? 'active' : ''}
+              onClick={() => setChartMode('heatmap')}
+            >
+              Heatmap
+            </button>
           </div>
           <div className="window-selector">
             {([30, 60, 90] as TimeWindow[]).map((w) => (
@@ -52,9 +59,9 @@ function TrendExplorer() {
           <p className="status">No trend data available yet.</p>
         )}
         {!loading && !error && topics.length > 0 && (
-          chartMode === 'line'
-            ? <LineChart topics={topics} />
-            : <BubbleChart topics={topics} />
+          chartMode === 'line' ? <LineChart topics={topics} />
+          : chartMode === 'bubble' ? <BubbleChart topics={topics} />
+          : <Heatmap topics={topics} />
         )}
       </div>
     </div>
