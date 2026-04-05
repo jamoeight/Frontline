@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { fetchTrends, type TopicTimeseries } from '../services/api'
 
-export function useTrends(window: 30 | 60 | 90 = 90) {
+interface UseTrendsParams {
+  window?: 30 | 60 | 90
+  sortBy?: 'growth_rate' | 'paper_count'
+  limit?: number
+}
+
+export function useTrends({ window = 90, sortBy = 'growth_rate', limit = 10 }: UseTrendsParams = {}) {
   const [topics, setTopics] = useState<TopicTimeseries[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -10,7 +16,7 @@ export function useTrends(window: 30 | 60 | 90 = 90) {
     setLoading(true)
     setError(null)
 
-    fetchTrends({ window, mode: 'timeseries' })
+    fetchTrends({ window, mode: 'timeseries', sort_by: sortBy, limit })
       .then((res) => {
         setTopics(res.topics as TopicTimeseries[])
       })
@@ -20,7 +26,7 @@ export function useTrends(window: 30 | 60 | 90 = 90) {
       .finally(() => {
         setLoading(false)
       })
-  }, [window])
+  }, [window, sortBy, limit])
 
   return { topics, loading, error }
 }
