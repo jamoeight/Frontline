@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from backend.config import settings
 
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 CATEGORIES = ["cs.AI", "cs.CL", "cs.CV", "cs.LG", "cs.NE", "stat.ML"]
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
 ARXIV_NS = "{http://arxiv.org/schemas/atom}"
@@ -138,7 +138,7 @@ async def insert_papers(papers: list[dict]) -> int:
             await session.execute(
                 text("""
                     INSERT INTO papers (arxiv_id, title, authors, abstract, categories, publication_date)
-                    VALUES (:arxiv_id, :title, :authors::jsonb, :abstract, :categories, :publication_date)
+                    VALUES (:arxiv_id, :title, CAST(:authors AS jsonb), :abstract, :categories, :publication_date)
                 """),
                 {
                     "arxiv_id": paper["arxiv_id"],
