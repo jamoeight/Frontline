@@ -199,10 +199,13 @@ async def main():
         inserted = await insert_papers(papers)
         print(f"Inserted {inserted} new papers ({len(papers) - inserted} duplicates skipped)")
 
-        # generate embeddings for the new papers
+        # generate embeddings then cluster
         if inserted > 0:
             from pipeline.embed import run_embedding
             await run_embedding()
+
+            from pipeline.cluster import run_clustering
+            await run_clustering()
 
         elapsed_ms = int((time.time() - start_time) * 1000)
         await log_run("completed", inserted, elapsed_ms)
