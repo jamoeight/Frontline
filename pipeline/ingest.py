@@ -207,6 +207,9 @@ async def main():
             from pipeline.cluster import run_clustering
             await run_clustering()
 
+            from pipeline.metrics import run_metrics
+            await run_metrics()
+
         elapsed_ms = int((time.time() - start_time) * 1000)
         await log_run("completed", inserted, elapsed_ms)
         print(f"Done in {elapsed_ms}ms")
