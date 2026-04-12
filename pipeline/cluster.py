@@ -137,10 +137,10 @@ async def run_clustering():
     embeddings = np.array([p["embedding"] for p in papers])
     paper_ids = [p["id"] for p in papers]
 
-    # configure BERTopic
+    # configure BERTopic — tuned for 20k+ scientific papers
     hdbscan_model = HDBSCAN(
-        min_cluster_size=10,
-        min_samples=5,
+        min_cluster_size=50,
+        min_samples=15,
         metric="euclidean",
         prediction_data=True,
     )
@@ -149,7 +149,7 @@ async def run_clustering():
     topic_model = BERTopic(
         hdbscan_model=hdbscan_model,
         vectorizer_model=vectorizer,
-        nr_topics="auto",
+        nr_topics=None,
         verbose=True,
     )
 
