@@ -1,4 +1,4 @@
-import Plot from 'react-plotly.js'
+import Plot from './Plot'
 import type { TopicTimeseries } from '../services/api'
 
 const COLORS = [
