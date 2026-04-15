@@ -5,6 +5,22 @@ interface BubbleChartProps {
   topics: TopicTimeseries[]
 }
 
+function wrapText(text: string, maxChars = 60): string {
+  const words = text.split(' ')
+  let line = ''
+  const lines: string[] = []
+  for (const word of words) {
+    if (line.length + word.length + 1 > maxChars && line) {
+      lines.push(line)
+      line = word
+    } else {
+      line = line ? `${line} ${word}` : word
+    }
+  }
+  if (line) lines.push(line)
+  return lines.join('<br>')
+}
+
 function BubbleChart({ topics }: BubbleChartProps) {
   const growthRates = topics.map((t) => (t.latest_growth_rate ?? 0) * 100)
   const paperCounts = topics.map((t) => t.paper_count)
@@ -39,7 +55,7 @@ function BubbleChart({ topics }: BubbleChartProps) {
       const growth = t.latest_growth_rate !== null
         ? `${t.latest_growth_rate > 0 ? '+' : ''}${(t.latest_growth_rate * 100).toFixed(1)}%`
         : 'N/A'
-      const summary = t.summary_general || 'No summary available'
+      const summary = wrapText(t.summary_general || 'No summary available')
       return `<b>${t.label}</b><br>Papers: ${t.paper_count}<br>Growth: ${growth}<br><br>${summary}`
     }),
     hoverinfo: 'text' as const,

@@ -10,6 +10,22 @@ interface LineChartProps {
   topics: TopicTimeseries[]
 }
 
+function wrapText(text: string, maxChars = 60): string {
+  const words = text.split(' ')
+  let line = ''
+  const lines: string[] = []
+  for (const word of words) {
+    if (line.length + word.length + 1 > maxChars && line) {
+      lines.push(line)
+      line = word
+    } else {
+      line = line ? `${line} ${word}` : word
+    }
+  }
+  if (line) lines.push(line)
+  return lines.join('<br>')
+}
+
 function LineChart({ topics }: LineChartProps) {
   const traces = topics.map((topic, i) => ({
     x: topic.data_points.map((dp) => dp.week_start),
@@ -23,7 +39,7 @@ function LineChart({ topics }: LineChartProps) {
       const growth = dp.growth_rate !== null
         ? `${dp.growth_rate > 0 ? '+' : ''}${(dp.growth_rate * 100).toFixed(1)}%`
         : 'N/A'
-      const summary = topic.summary_general || 'No summary available'
+      const summary = wrapText(topic.summary_general || 'No summary available')
       return `<b>${topic.label}</b><br>Papers: ${dp.paper_count}<br>Growth: ${growth}<br><br>${summary}`
     }),
     hoverinfo: 'text' as const,
