@@ -1,5 +1,5 @@
 .trend-explorer {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px;
 }
@@ -17,6 +17,7 @@
   display: flex;
   gap: 24px;
   align-items: flex-end;
+  justify-content: space-between;
   margin-bottom: 20px;
   padding: 16px;
   background: #161b22;
@@ -26,6 +27,7 @@
 }
 
 .control-group {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -41,9 +43,11 @@
 .button-group {
   display: flex;
   gap: 4px;
+  width: 100%;
 }
 
 .button-group button {
+  flex: 1;
   padding: 6px 14px;
   border: 1px solid #3a3d45;
   border-radius: 6px;

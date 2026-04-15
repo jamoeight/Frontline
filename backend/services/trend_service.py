@@ -148,24 +148,25 @@ class TrendService:
         self, cutoff: date, sort_by: SortBy, limit: int
     ) -> list[TopicTimeseries]:
         sort_col = {
-            SortBy.GROWTH_RATE: "latest.growth_rate",
-            SortBy.PAPER_COUNT: "t.paper_count",
+            SortBy.GROWTH_RATE: "windowed.avg_growth",
+            SortBy.PAPER_COUNT: "windowed.window_papers",
         }[sort_by]
 
         topic_result = await self.db.execute(
             text(f"""
                 SELECT t.id, t.slug, t.label, t.paper_count,
-                       t.summary_general, latest.growth_rate AS latest_growth_rate
+                       t.summary_general,
+                       windowed.avg_growth AS latest_growth_rate,
+                       windowed.window_papers
                 FROM topics t
                 LEFT JOIN LATERAL (
-                    SELECT tm.growth_rate
+                    SELECT AVG(tm.growth_rate) AS avg_growth,
+                           SUM(tm.paper_count) AS window_papers
                     FROM trend_metrics tm
                     WHERE tm.topic_id = t.id
                       AND tm.period = 'weekly'
                       AND tm.metric_date >= :cutoff
-                    ORDER BY tm.metric_date DESC
-                    LIMIT 1
-                ) latest ON true
+                ) windowed ON true
                 ORDER BY {sort_col} DESC NULLS LAST
                 LIMIT :limit
             """),
@@ -206,7 +207,7 @@ class TrendService:
             TopicTimeseries(
                 slug=t["slug"],
                 label=t["label"],
-                paper_count=t["paper_count"],
+                paper_count=int(t["window_papers"] or t["paper_count"]),
                 summary_general=t["summary_general"],
                 latest_growth_rate=t["latest_growth_rate"],
                 data_points=points_by_topic.get(t["id"], []),

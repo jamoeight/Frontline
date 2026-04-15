@@ -10,8 +10,8 @@ type ChartMode = 'line' | 'bubble' | 'heatmap'
 type SortBy = 'growth_rate' | 'paper_count'
 
 function TrendExplorer() {
-  const [window, setWindow] = useState<TimeWindow>(90)
-  const [chartMode, setChartMode] = useState<ChartMode>('line')
+  const [window, setWindow] = useState<TimeWindow>(30)
+  const [chartMode, setChartMode] = useState<ChartMode>('bubble')
   const [sortBy, setSortBy] = useState<SortBy>('growth_rate')
   const [limit, setLimit] = useState(10)
   const { topics, loading, error } = useTrends({ window, sortBy, limit })
@@ -26,7 +26,7 @@ function TrendExplorer() {
         <div className="control-group">
           <label>View</label>
           <div className="button-group">
-            {(['line', 'bubble', 'heatmap'] as ChartMode[]).map((mode) => (
+            {(['bubble', 'heatmap', 'line'] as ChartMode[]).map((mode) => (
               <button
                 key={mode}
                 className={chartMode === mode ? 'active' : ''}

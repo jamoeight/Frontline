@@ -22,16 +22,8 @@ function wrapText(text: string, maxChars = 60): string {
 }
 
 function BubbleChart({ topics }: BubbleChartProps) {
-  // Compute values from data points within the time window
-  const paperCounts = topics.map((t) =>
-    t.data_points.reduce((sum, dp) => sum + dp.paper_count, 0)
-  )
-  const growthRates = topics.map((t) => {
-    const pts = t.data_points
-    if (pts.length < 2) return (t.latest_growth_rate ?? 0) * 100
-    const lastGrowth = pts[pts.length - 1].growth_rate
-    return (lastGrowth ?? 0) * 100
-  })
+  const growthRates = topics.map((t) => (t.latest_growth_rate ?? 0) * 100)
+  const paperCounts = topics.map((t) => t.paper_count)
   const maxPapers = Math.max(...paperCounts, 1)
 
   const trace = {
@@ -59,12 +51,12 @@ function BubbleChart({ topics }: BubbleChartProps) {
       },
       line: { color: '#2a2d35', width: 1 },
     },
-    hovertext: topics.map((t, idx) => {
-      const growth = growthRates[idx] !== 0
-        ? `${growthRates[idx] > 0 ? '+' : ''}${growthRates[idx].toFixed(1)}%`
+    hovertext: topics.map((t) => {
+      const growth = t.latest_growth_rate !== null
+        ? `${t.latest_growth_rate > 0 ? '+' : ''}${(t.latest_growth_rate * 100).toFixed(1)}%`
         : 'N/A'
       const summary = wrapText(t.summary_general || 'No summary available')
-      return `<b>${t.label}</b><br>Papers (window): ${paperCounts[idx]}<br>Growth: ${growth}<br><br>${summary}`
+      return `<b>${t.label}</b><br>Papers: ${t.paper_count}<br>Growth: ${growth}<br><br>${summary}`
     }),
     hoverinfo: 'text' as const,
   }
@@ -87,7 +79,7 @@ function BubbleChart({ topics }: BubbleChartProps) {
           title: 'Total Papers',
           gridcolor: '#2a2d35',
         },
-        margin: { t: 20, r: 20, b: 60, l: 60 },
+        margin: { t: 40, r: 40, b: 80, l: 80 },
         hoverlabel: {
           bgcolor: '#1c1f26',
           bordercolor: '#3a3d45',
@@ -99,7 +91,7 @@ function BubbleChart({ topics }: BubbleChartProps) {
         responsive: true,
         displayModeBar: false,
       }}
-      style={{ width: '100%', height: '500px' }}
+      style={{ width: '100%', height: '700px' }}
     />
   )
 }
