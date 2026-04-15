@@ -58,6 +58,26 @@ export async function fetchTrends(params: {
   return data
 }
 
+export interface TrendingTopic {
+  slug: string
+  label: string
+  paper_count: number
+  growth_rate: number | null
+  summary_technical: string | null
+  summary_general: string | null
+  summary_prediction: string | null
+}
+
+export interface TrendingListResponse {
+  topics: TrendingTopic[]
+  total_count: number
+}
+
+export async function fetchTrending(limit: number = 10): Promise<TrendingListResponse> {
+  const { data } = await api.get('/trending', { params: { limit } })
+  return data
+}
+
 export async function fetchTopicDetail(
   slug: string,
   window: 30 | 60 | 90 = 90,

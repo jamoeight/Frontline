@@ -3,6 +3,7 @@ import { useTrends } from '../hooks/useTrends'
 import LineChart from '../components/LineChart'
 import BubbleChart from '../components/BubbleChart'
 import Heatmap from '../components/Heatmap'
+import TrendingPanel from '../components/TrendingPanel'
 import './TrendExplorer.css'
 
 type TimeWindow = 30 | 60 | 90
@@ -99,6 +100,8 @@ function TrendExplorer() {
           : <Heatmap topics={topics} />
         )}
       </div>
+
+      <TrendingPanel />
     </div>
   )
 }
