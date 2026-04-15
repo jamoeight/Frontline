@@ -210,6 +210,9 @@ async def main():
             from pipeline.metrics import run_metrics
             await run_metrics()
 
+            from pipeline.summarize import run_summarization
+            await run_summarization()
+
         elapsed_ms = int((time.time() - start_time) * 1000)
         await log_run("completed", inserted, elapsed_ms)
         print(f"Done in {elapsed_ms}ms")
