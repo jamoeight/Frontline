@@ -102,7 +102,7 @@ function PaperRow({ paper }: { paper: PaperItem }) {
     <tr>
       <td>
         <a
-          href={`https://arxiv.org/abs/${paper.arxiv_id}`}
+          href={`https://arxiv.org/pdf/${paper.arxiv_id}`}
           target="_blank"
           rel="noopener noreferrer"
           className="paper-link"

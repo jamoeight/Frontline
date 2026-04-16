@@ -180,6 +180,47 @@ async def log_run(status: str, paper_count: int, processing_time_ms: int, error_
     await engine.dispose()
 
 
+RETENTION_DAYS = 180
+
+
+async def cleanup_old_data() -> int:
+    """Delete papers older than RETENTION_DAYS and prune orphaned topics/metrics."""
+    engine = create_async_engine(settings.database_url)
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).date()
+
+    async with session_factory() as session:
+        # delete old papers (cascades to paper_topics)
+        result = await session.execute(
+            text("DELETE FROM papers WHERE publication_date < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        deleted = result.rowcount
+
+        # delete old trend_metrics
+        await session.execute(
+            text("DELETE FROM trend_metrics WHERE metric_date < :cutoff"),
+            {"cutoff": cutoff},
+        )
+
+        # delete orphaned topics with no remaining papers
+        await session.execute(
+            text("DELETE FROM topics WHERE id NOT IN (SELECT DISTINCT topic_id FROM paper_topics)"),
+        )
+
+        # delete old pipeline_runs
+        await session.execute(
+            text("DELETE FROM pipeline_runs WHERE started_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+
+        await session.commit()
+
+    await engine.dispose()
+    return deleted
+
+
 async def main():
     print("=== Frontline arXiv Ingestion ===")
     start_time = time.time()
@@ -198,6 +239,11 @@ async def main():
 
         inserted = await insert_papers(papers)
         print(f"Inserted {inserted} new papers ({len(papers) - inserted} duplicates skipped)")
+
+        # drop papers older than 180 days before downstream processing
+        deleted = await cleanup_old_data()
+        if deleted > 0:
+            print(f"Cleaned up {deleted} papers older than {RETENTION_DAYS} days")
 
         # generate embeddings then cluster
         if inserted > 0:
