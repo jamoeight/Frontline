@@ -1,0 +1,163 @@
+.topic-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.back-link {
+  color: #636efa;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.topic-header {
+  margin: 16px 0 24px;
+}
+
+.topic-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.topic-summary {
+  color: #9ca3af;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.paper-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.paper-sort {
+  display: flex;
+  gap: 4px;
+}
+
+.paper-sort button {
+  padding: 6px 14px;
+  border: 1px solid #3a3d45;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.paper-sort button:hover {
+  border-color: #636efa;
+  color: #e1e4e8;
+}
+
+.paper-sort button.active {
+  background: #636efa;
+  border-color: #636efa;
+  color: #fff;
+}
+
+.paper-filter {
+  padding: 6px 12px;
+  border: 1px solid #3a3d45;
+  border-radius: 6px;
+  background: #0d1117;
+  color: #e1e4e8;
+  font-size: 13px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.paper-filter::placeholder {
+  color: #6b7280;
+}
+
+.paper-count {
+  color: #6b7280;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #161b22;
+  border: 1px solid #2a2d35;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.paper-table thead {
+  background: #1c2129;
+}
+
+.paper-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #2a2d35;
+}
+
+.paper-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #c9d1d9;
+  border-bottom: 1px solid #21262d;
+}
+
+.paper-table tr:last-child td {
+  border-bottom: none;
+}
+
+.paper-table tr:hover td {
+  background: #1c2129;
+}
+
+.paper-link {
+  color: #58a6ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.paper-link:hover {
+  text-decoration: underline;
+}
+
+.authors {
+  color: #8b949e;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date {
+  white-space: nowrap;
+}
+
+.category {
+  color: #8b949e;
+}
+
+.relevance {
+  font-weight: 600;
+  color: #3fb950;
+}
+
+.no-results {
+  text-align: center;
+  color: #6b7280;
+  padding: 24px !important;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchTrending, type TrendingTopic } from '../services/api'
 import './TrendingPanel.css'
 
@@ -77,6 +78,9 @@ function TrendingPanel() {
                   {activeTab === 'prediction' && (
                     <p className="disclaimer">Disclaimer: This prediction is AI-generated and may not be accurate.</p>
                   )}
+                  <Link to={`/topic/${topic.slug}`} className="view-papers-link">
+                    View papers →
+                  </Link>
                 </div>
               </div>
             )}

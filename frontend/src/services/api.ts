@@ -85,3 +85,29 @@ export async function fetchTopicDetail(
   const { data } = await api.get(`/trends/${slug}`, { params: { window } })
   return data
 }
+
+export interface PaperItem {
+  arxiv_id: string
+  title: string
+  authors: string[]
+  abstract: string
+  publication_date: string
+  categories: string[]
+  relevance_score: number
+}
+
+export interface TopicPapersResponse {
+  slug: string
+  label: string
+  summary_general: string | null
+  papers: PaperItem[]
+  total_count: number
+}
+
+export async function fetchTopicPapers(
+  slug: string,
+  params: { limit?: number; offset?: number; sort_by?: 'date' | 'relevance' } = {},
+): Promise<TopicPapersResponse> {
+  const { data } = await api.get(`/topics/${slug}/papers`, { params })
+  return data
+}

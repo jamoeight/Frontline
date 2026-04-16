@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import engine
-from backend.routers import trends, trending
+from backend.routers import trends, trending, papers
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app.add_middleware(
 
 app.include_router(trends.router)
 app.include_router(trending.router)
+app.include_router(papers.router)
 
 
 @app.get("/health")
