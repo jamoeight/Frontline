@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 MODEL_NAME = "all-MiniLM-L6-v2"
 TOP_K_PAPERS = 50
 MIN_CONFIDENCE = 0.25
+ANSWER_LOOKBACK_DAYS = 14
+ANSWER_MAX_ABSTRACTS = 60
 
 _model: SentenceTransformer | None = None
 
@@ -82,3 +84,47 @@ async def match_topic(
         return None, confidence, match_count
 
     return dict(row), confidence, match_count
+
+
+async def get_recent_abstracts_for_topic(
+    session: AsyncSession,
+    topic_id: int,
+) -> list[dict]:
+    """Fetch the most recent abstracts for a topic to feed the LLM.
+
+    Prefers papers from the last 14 days (the "what's new" window) but
+    falls back to the topic's most recent papers regardless of date if
+    nothing recent is available.
+    """
+    result = await session.execute(
+        text("""
+            SELECT p.arxiv_id, p.title, p.abstract, p.publication_date
+            FROM papers p
+            JOIN paper_topics pt ON pt.paper_id = p.id
+            WHERE pt.topic_id = :topic_id
+              AND p.publication_date >= CURRENT_DATE - :lookback
+            ORDER BY p.publication_date DESC, pt.relevance_score DESC
+            LIMIT :limit
+        """),
+        {
+            "topic_id": topic_id,
+            "lookback": ANSWER_LOOKBACK_DAYS,
+            "limit": ANSWER_MAX_ABSTRACTS,
+        },
+    )
+    rows = [dict(r) for r in result.mappings()]
+    if rows:
+        return rows
+
+    fallback = await session.execute(
+        text("""
+            SELECT p.arxiv_id, p.title, p.abstract, p.publication_date
+            FROM papers p
+            JOIN paper_topics pt ON pt.paper_id = p.id
+            WHERE pt.topic_id = :topic_id
+            ORDER BY p.publication_date DESC, pt.relevance_score DESC
+            LIMIT :limit
+        """),
+        {"topic_id": topic_id, "limit": ANSWER_MAX_ABSTRACTS},
+    )
+    return [dict(r) for r in fallback.mappings()]
