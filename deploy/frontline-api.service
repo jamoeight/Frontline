@@ -1,0 +1,20 @@
+[Unit]
+Description=Frontline AI FastAPI backend
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Frontline
+EnvironmentFile=/home/ubuntu/Frontline/.env
+Environment=PYTHONPATH=/home/ubuntu/Frontline
+ExecStart=/usr/bin/python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/frontline/api.log
+StandardError=append:/var/log/frontline/api.log
+
+[Install]
+WantedBy=multi-user.target

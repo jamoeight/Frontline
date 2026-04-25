@@ -1,0 +1,4 @@
+# Frontline daily arXiv ingest at 06:00 UTC.
+# Install with: crontab -u ubuntu deploy/ingest.cron
+# Requires /var/log/frontline/ writable by ubuntu (created in deploy.sh).
+0 6 * * * cd /home/ubuntu/Frontline && /usr/bin/python3 -m pipeline.ingest >> /var/log/frontline/ingest.log 2>&1

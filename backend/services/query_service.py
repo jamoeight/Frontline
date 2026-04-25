@@ -52,7 +52,7 @@ async def match_topic(
 
     result = await session.execute(
         text("""
-            WITH similar AS (
+            WITH nearest_papers AS (
                 SELECT pt.topic_id,
                        1 - (p.embedding <=> CAST(:query_emb AS vector)) AS similarity
                 FROM papers p
@@ -64,7 +64,7 @@ async def match_topic(
             SELECT t.id, t.slug, t.label, t.paper_count, t.summary_general,
                    AVG(s.similarity) AS avg_similarity,
                    COUNT(*) AS match_count
-            FROM similar s
+            FROM nearest_papers s
             JOIN topics t ON t.id = s.topic_id
             GROUP BY t.id, t.slug, t.label, t.paper_count, t.summary_general
             ORDER BY avg_similarity DESC, match_count DESC
@@ -102,7 +102,7 @@ async def get_recent_abstracts_for_topic(
             FROM papers p
             JOIN paper_topics pt ON pt.paper_id = p.id
             WHERE pt.topic_id = :topic_id
-              AND p.publication_date >= CURRENT_DATE - :lookback
+              AND p.publication_date >= CURRENT_DATE - (:lookback * INTERVAL '1 day')
             ORDER BY p.publication_date DESC, pt.relevance_score DESC
             LIMIT :limit
         """),
