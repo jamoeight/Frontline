@@ -15,6 +15,8 @@ from backend.schemas.trends import (
     TrendMode,
 )
 
+MIN_TOPIC_PAPERS = 10
+
 
 class TrendService:
     def __init__(self, db: AsyncSession):
@@ -123,10 +125,11 @@ class TrendService:
                     ORDER BY tm.metric_date DESC
                     LIMIT 1
                 ) latest ON true
+                WHERE t.paper_count >= :min_papers
                 ORDER BY {sort_col} DESC NULLS LAST
                 LIMIT :limit
             """),
-            {"cutoff": cutoff, "limit": limit},
+            {"cutoff": cutoff, "limit": limit, "min_papers": MIN_TOPIC_PAPERS},
         )
 
         return [
@@ -167,10 +170,11 @@ class TrendService:
                       AND tm.period = 'weekly'
                       AND tm.metric_date >= :cutoff
                 ) windowed ON true
+                WHERE t.paper_count >= :min_papers
                 ORDER BY {sort_col} DESC NULLS LAST
                 LIMIT :limit
             """),
-            {"cutoff": cutoff, "limit": limit},
+            {"cutoff": cutoff, "limit": limit, "min_papers": MIN_TOPIC_PAPERS},
         )
         topics = list(topic_result.mappings())
         if not topics:
