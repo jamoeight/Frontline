@@ -4,6 +4,7 @@ import LineChart from '../components/LineChart'
 import BubbleChart from '../components/BubbleChart'
 import Heatmap from '../components/Heatmap'
 import TrendingPanel from '../components/TrendingPanel'
+import SearchBar from '../components/SearchBar'
 import './TrendExplorer.css'
 
 type TimeWindow = 30 | 60 | 90
@@ -22,6 +23,8 @@ function TrendExplorer() {
       <header className="trend-header">
         <h1>Trend Explorer</h1>
       </header>
+
+      <SearchBar />
 
       <div className="control-panel">
         <div className="control-group">

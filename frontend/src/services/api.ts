@@ -111,3 +111,29 @@ export async function fetchTopicPapers(
   const { data } = await api.get(`/topics/${slug}/papers`, { params })
   return data
 }
+
+export interface TopicMatch {
+  slug: string
+  label: string
+  paper_count: number
+  summary_general: string | null
+}
+
+export interface CitedPaper {
+  arxiv_id: string
+  title: string
+  publication_date: string
+}
+
+export interface QueryAnswerResponse {
+  question: string
+  answer: string | null
+  topic: TopicMatch | null
+  confidence: number
+  cited_papers: CitedPaper[]
+}
+
+export async function askQuery(question: string): Promise<QueryAnswerResponse> {
+  const { data } = await api.post('/query/ask', { question })
+  return data
+}
