@@ -117,6 +117,7 @@ function SearchBar() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<QueryAnswerResponse | null>(null)
   const [typed, setTyped] = useState('')
+  const [armedPrompt, setArmedPrompt] = useState<string | null>(null)
   // Shuffle once on mount so each visitor sees a different ordering.
   const [prompts] = useState<string[]>(shufflePrompts)
 
@@ -125,6 +126,7 @@ function SearchBar() {
   useEffect(() => {
     if (!isEmpty) {
       setTyped('')
+      setArmedPrompt(null)
       return
     }
 
@@ -149,6 +151,7 @@ function SearchBar() {
         setTyped(current.slice(0, charIdx))
         if (charIdx >= current.length) {
           phase = 'holding'
+          setArmedPrompt(current)
           schedule(tick, HOLD_AT_END)
         } else {
           schedule(tick, TYPE_SPEED + Math.random() * 30)
@@ -158,6 +161,7 @@ function SearchBar() {
 
       if (phase === 'holding') {
         phase = 'deleting'
+        setArmedPrompt(null)
         schedule(tick, PAUSE_BETWEEN)
         return
       }
@@ -183,8 +187,12 @@ function SearchBar() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const trimmed = question.trim()
+    const trimmed = question.trim() || (armedPrompt ?? '').trim()
     if (trimmed.length < 3) return
+
+    if (!question.trim() && armedPrompt) {
+      setQuestion(armedPrompt)
+    }
 
     setLoading(true)
     setError(null)
@@ -233,8 +241,8 @@ function SearchBar() {
         <div className="search-actions">
           <button
             type="submit"
-            className="search-submit"
-            disabled={loading || question.trim().length < 3}
+            className={'search-submit' + (armedPrompt && !question.trim() ? ' search-submit-armed' : '')}
+            disabled={loading || (question.trim().length < 3 && !armedPrompt)}
           >
             <span>{loading ? 'Asking…' : 'Ask'}</span>
             <span className="search-submit-arrow" aria-hidden>↗</span>

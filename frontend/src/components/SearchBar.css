@@ -127,6 +127,23 @@
   cursor: not-allowed;
 }
 
+.search-submit-armed {
+  background: var(--accent);
+  animation: search-submit-pulse 1.4s ease-in-out;
+}
+
+@keyframes search-submit-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(200, 84, 43, 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 10px rgba(200, 84, 43, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(200, 84, 43, 0);
+  }
+}
+
 .search-submit-arrow {
   display: inline-block;
   transition: transform 0.4s var(--ease-out-expo);
