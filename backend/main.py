@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import engine
-from backend.routers import trends, trending, papers, query
+from backend.routers import trends, trending, papers, query, status
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.include_router(trends.router)
 app.include_router(trending.router)
 app.include_router(papers.router)
 app.include_router(query.router)
+app.include_router(status.router)
 
 
 @app.get("/health")

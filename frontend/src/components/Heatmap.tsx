@@ -6,12 +6,10 @@ interface HeatmapProps {
 }
 
 function Heatmap({ topics }: HeatmapProps) {
-  // Collect all unique weeks across all topics, sorted
   const allWeeks = [...new Set(
     topics.flatMap((t) => t.data_points.map((dp) => dp.week_start))
   )].sort()
 
-  // Build the matrix: rows = topics, columns = weeks, cells = paper count
   const z = topics.map((topic) => {
     const countByWeek = new Map(
       topic.data_points.map((dp) => [dp.week_start, dp.paper_count])
@@ -41,45 +39,50 @@ function Heatmap({ topics }: HeatmapProps) {
           }),
           y: topics.map((t) => t.label),
           type: 'heatmap',
+          // Single-hue ink intensity: paper → vermillion → ink
           colorscale: [
-            [0, '#161b22'],
-            [0.25, '#0e4429'],
-            [0.5, '#006d32'],
-            [0.75, '#26a641'],
-            [1, '#39d353'],
+            [0, '#f5f1e8'],
+            [0.2, '#f1d9c7'],
+            [0.5, '#e8a37d'],
+            [0.8, '#c8542b'],
+            [1, '#1a1817'],
           ],
           hovertext: hoverText,
           hoverinfo: 'text' as const,
           showscale: true,
+          xgap: 2,
+          ygap: 2,
           colorbar: {
-            title: { text: 'Papers', font: { color: '#9ca3af' } },
-            tickfont: { color: '#9ca3af' },
+            title: { text: 'Papers', font: { color: '#8c8579', size: 11 } },
+            tickfont: { color: '#5c544a', size: 11 },
+            outlinecolor: '#d6cfc0',
+            outlinewidth: 1,
           },
         },
       ]}
       layout={{
         paper_bgcolor: 'transparent',
         plot_bgcolor: 'transparent',
-        font: { color: '#e1e4e8', family: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
+        font: { color: '#1a1817', family: 'DM Sans, system-ui, sans-serif', size: 12 },
         xaxis: {
-          title: 'Week',
           side: 'bottom',
+          tickfont: { size: 11, color: '#5c544a' },
+          linecolor: '#d6cfc0',
         },
         yaxis: {
           autorange: 'reversed',
+          tickfont: { size: 12, color: '#1a1817' },
+          linecolor: '#d6cfc0',
         },
-        margin: { t: 20, r: 20, b: 60, l: 180 },
+        margin: { t: 20, r: 60, b: 60, l: 200 },
         hoverlabel: {
-          bgcolor: '#1c1f26',
-          bordercolor: '#3a3d45',
-          font: { color: '#e1e4e8', size: 12 },
+          bgcolor: '#f5f1e8',
+          bordercolor: '#1a1817',
+          font: { color: '#1a1817', size: 12, family: 'DM Sans, system-ui, sans-serif' },
           align: 'left',
         },
       }}
-      config={{
-        responsive: true,
-        displayModeBar: false,
-      }}
+      config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%', height: '500px' }}
     />
   )

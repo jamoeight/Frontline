@@ -33,28 +33,33 @@ function BubbleChart({ topics }: BubbleChartProps) {
     type: 'scatter' as const,
     text: topics.map((t) => t.label),
     textposition: 'top center' as const,
-    textfont: { color: '#9ca3af', size: 11 },
+    textfont: { color: '#1a1817', size: 12, family: 'Fraunces, serif' },
     marker: {
-      size: paperCounts.map((c) => Math.max(20, (c / maxPapers) * 80)),
+      size: paperCounts.map((c) => Math.max(22, (c / maxPapers) * 88)),
       color: growthRates,
+      // Diverging palette: brick (negative) → cream (neutral) → vermillion (positive)
       colorscale: [
-        [0, '#ef553b'],
-        [0.5, '#3a3d45'],
-        [1, '#00cc96'],
+        [0, '#8b2e1f'],
+        [0.5, '#ede5d2'],
+        [1, '#c8542b'],
       ] as [number, string][],
       cmid: 0,
       showscale: true,
       colorbar: {
-        title: { text: 'Growth %', font: { color: '#9ca3af' } },
-        tickfont: { color: '#9ca3af' },
+        title: { text: 'Growth %', font: { color: '#8c8579', size: 11 } },
+        tickfont: { color: '#5c544a', size: 11 },
         ticksuffix: '%',
+        outlinecolor: '#d6cfc0',
+        outlinewidth: 1,
       },
-      line: { color: '#2a2d35', width: 1 },
+      line: { color: '#1a1817', width: 0.8 },
+      opacity: 0.92,
     },
     hovertext: topics.map((t) => {
-      const growth = t.latest_growth_rate !== null
-        ? `${t.latest_growth_rate > 0 ? '+' : ''}${(t.latest_growth_rate * 100).toFixed(1)}%`
-        : 'N/A'
+      const growth =
+        t.latest_growth_rate !== null
+          ? `${t.latest_growth_rate > 0 ? '+' : ''}${(t.latest_growth_rate * 100).toFixed(1)}%`
+          : 'N/A'
       const summary = wrapText(t.summary_general || 'No summary available')
       return `<b>${t.label}</b><br>Papers: ${t.paper_count}<br>Growth: ${growth}<br><br>${summary}`
     }),
@@ -67,30 +72,32 @@ function BubbleChart({ topics }: BubbleChartProps) {
       layout={{
         paper_bgcolor: 'transparent',
         plot_bgcolor: 'transparent',
-        font: { color: '#e1e4e8', family: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
+        font: { color: '#1a1817', family: 'DM Sans, system-ui, sans-serif', size: 12 },
         xaxis: {
-          title: 'Growth Rate (%)',
-          gridcolor: '#2a2d35',
+          title: { text: 'Growth rate (% week / week)', font: { size: 11, color: '#8c8579' } },
+          gridcolor: '#e3dcc9',
+          linecolor: '#d6cfc0',
           zeroline: true,
-          zerolinecolor: '#3a3d45',
+          zerolinecolor: '#1a1817',
+          zerolinewidth: 1,
           ticksuffix: '%',
+          tickfont: { size: 11, color: '#5c544a' },
         },
         yaxis: {
-          title: 'Total Papers',
-          gridcolor: '#2a2d35',
+          title: { text: 'Total papers', font: { size: 11, color: '#8c8579' } },
+          gridcolor: '#e3dcc9',
+          linecolor: '#d6cfc0',
+          tickfont: { size: 11, color: '#5c544a' },
         },
-        margin: { t: 40, r: 40, b: 80, l: 80 },
+        margin: { t: 40, r: 60, b: 80, l: 80 },
         hoverlabel: {
-          bgcolor: '#1c1f26',
-          bordercolor: '#3a3d45',
-          font: { color: '#e1e4e8', size: 12 },
+          bgcolor: '#f5f1e8',
+          bordercolor: '#1a1817',
+          font: { color: '#1a1817', size: 12, family: 'DM Sans, system-ui, sans-serif' },
           align: 'left',
         },
       }}
-      config={{
-        responsive: true,
-        displayModeBar: false,
-      }}
+      config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%', height: '700px' }}
     />
   )

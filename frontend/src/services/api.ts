@@ -137,3 +137,14 @@ export async function askQuery(question: string): Promise<QueryAnswerResponse> {
   const { data } = await api.post('/query/ask', { question })
   return data
 }
+
+export interface StatusResponse {
+  last_ingest_at: string | null
+  last_ingest_papers: number | null
+  schedule: string
+}
+
+export async function fetchStatus(): Promise<StatusResponse> {
+  const { data } = await api.get('/status')
+  return data
+}
