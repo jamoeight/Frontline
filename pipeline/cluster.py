@@ -103,17 +103,27 @@ async def save_topics(session: AsyncSession, topic_data: list[dict]):
     await session.commit()
 
 
-async def save_paper_topics(session: AsyncSession, assignments: list[dict]):
-    """Insert paper-topic assignments, replacing old ones."""
-    if not assignments:
-        return
+async def save_paper_topics(
+    session: AsyncSession,
+    assignments: list[dict],
+    corpus_paper_ids: list[int],
+):
+    """Insert paper-topic assignments, replacing old ones.
 
-    paper_ids = list({a["paper_id"] for a in assignments})
-    for pid in paper_ids:
-        await session.execute(
-            text("DELETE FROM paper_topics WHERE paper_id = :pid"),
-            {"pid": pid},
-        )
+    Clears prior assignments for *every* paper in the clustering corpus —
+    not just papers that received a new assignment — so HDBSCAN outliers
+    from this run drop their stale assignments instead of leaving the old
+    topic alive on outlier-only paper_topics rows.
+    """
+    # always clear, even if assignments is empty (all papers were outliers)
+    await session.execute(
+        text("DELETE FROM paper_topics WHERE paper_id = ANY(:pids)"),
+        {"pids": corpus_paper_ids},
+    )
+
+    if not assignments:
+        await session.commit()
+        return
 
     for a in assignments:
         await session.execute(
@@ -265,7 +275,7 @@ async def run_clustering():
     # save to database
     async with session_factory() as session:
         await save_topics(session, topic_data)
-        await save_paper_topics(session, assignments)
+        await save_paper_topics(session, assignments, paper_ids)
 
     await engine.dispose()
 
