@@ -148,3 +148,16 @@ export async function fetchStatus(): Promise<StatusResponse> {
   const { data } = await api.get('/status')
   return data
 }
+
+export interface StatsResponse {
+  total_papers: number
+  embedded_papers: number
+  total_topics: number
+  earliest_publication_date: string | null
+  latest_publication_date: string | null
+}
+
+export async function fetchStats(): Promise<StatsResponse> {
+  const { data } = await api.get('/stats')
+  return data
+}

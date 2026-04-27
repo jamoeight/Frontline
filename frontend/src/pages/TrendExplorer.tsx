@@ -7,7 +7,12 @@ import BubbleChart from '../components/BubbleChart'
 import Heatmap from '../components/Heatmap'
 import TrendingPanel from '../components/TrendingPanel'
 import SearchBar from '../components/SearchBar'
-import { fetchStatus, type StatusResponse } from '../services/api'
+import {
+  fetchStatus,
+  fetchStats,
+  type StatusResponse,
+  type StatsResponse,
+} from '../services/api'
 import './TrendExplorer.css'
 
 type TimeWindow = 30 | 60 | 90
@@ -90,15 +95,13 @@ function TrendExplorer() {
   const issueDate = useMemo(() => formatIssueDate(today), [today])
 
   const [status, setStatus] = useState<StatusResponse | null>(null)
+  const [corpus, setCorpus] = useState<StatsResponse | null>(null)
   useEffect(() => {
     fetchStatus().then(setStatus).catch(() => {})
+    fetchStats().then(setCorpus).catch(() => {})
   }, [])
 
   const stats = useMemo(() => {
-    if (topics.length === 0) {
-      return { papers: 0, topics: 0, avgGrowth: 0, biggestMover: null as string | null }
-    }
-    const papers = topics.reduce((sum, t) => sum + (t.paper_count ?? 0), 0)
     const growthRates = topics
       .map((t) => t.latest_growth_rate)
       .filter((g): g is number => g !== null && !Number.isNaN(g))
@@ -109,12 +112,12 @@ function TrendExplorer() {
       (a, b) => (b.latest_growth_rate ?? -Infinity) - (a.latest_growth_rate ?? -Infinity),
     )
     return {
-      papers,
-      topics: topics.length,
+      papers: corpus?.total_papers ?? 0,
+      topics: corpus?.total_topics ?? 0,
       avgGrowth,
       biggestMover: sorted[0]?.label ?? null,
     }
-  }, [topics])
+  }, [topics, corpus])
 
   return (
     <div className="page bulletin">
