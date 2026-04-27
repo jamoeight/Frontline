@@ -20,12 +20,25 @@ import numpy as np
 from bertopic import BERTopic
 from hdbscan import HDBSCAN
 from sklearn.feature_extraction.text import CountVectorizer
+from umap import UMAP
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from backend.config import settings
+from backend.services.llm import generate_topic_label
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "bertopic_model.pkl")
+
+
+def _topic_score(prob_row) -> float:
+    """Extract a [0, 1] relevance score from BERTopic's prob_row.
+
+    Handles scalar (default ``calculate_probabilities=False``) and 1-D array
+    (``calculate_probabilities=True``) outputs uniformly, including
+    ``numpy.float32`` which is *not* an ``isinstance`` of Python ``float``.
+    """
+    score = float(np.asarray(prob_row).max())
+    return max(0.0, min(1.0, score))
 
 
 def slugify(label: str) -> str:
@@ -40,12 +53,12 @@ def slugify(label: str) -> str:
 async def get_papers_with_embeddings(session: AsyncSession) -> list[dict]:
     """Fetch all papers that have embeddings."""
     result = await session.execute(
-        text("SELECT id, abstract, embedding::text FROM papers WHERE embedding IS NOT NULL ORDER BY id")
+        text("SELECT id, title, abstract, embedding::text FROM papers WHERE embedding IS NOT NULL ORDER BY id")
     )
     papers = []
     for row in result.fetchall():
-        embedding = json.loads(row[2])
-        papers.append({"id": row[0], "abstract": row[1], "embedding": embedding})
+        embedding = json.loads(row[3])
+        papers.append({"id": row[0], "title": row[1], "abstract": row[2], "embedding": embedding})
     return papers
 
 
@@ -137,7 +150,17 @@ async def run_clustering():
     embeddings = np.array([p["embedding"] for p in papers])
     paper_ids = [p["id"] for p in papers]
 
-    # configure BERTopic — tuned for 20k+ scientific papers
+    # configure BERTopic — tuned for 20k+ scientific papers.
+    # random_state on UMAP makes the dim-reduction step deterministic so
+    # cluster boundaries (and therefore topic identities) stay stable across
+    # daily re-cluster runs on the same corpus.
+    umap_model = UMAP(
+        n_neighbors=15,
+        n_components=5,
+        min_dist=0.0,
+        metric="cosine",
+        random_state=42,
+    )
     hdbscan_model = HDBSCAN(
         min_cluster_size=50,
         min_samples=15,
@@ -147,6 +170,7 @@ async def run_clustering():
     vectorizer = CountVectorizer(stop_words="english", ngram_range=(1, 2))
 
     topic_model = BERTopic(
+        umap_model=umap_model,
         hdbscan_model=hdbscan_model,
         vectorizer_model=vectorizer,
         nr_topics=None,
@@ -160,42 +184,69 @@ async def run_clustering():
         pickle.dump(topic_model, f)
     print(f"Model saved to {MODEL_PATH}")
 
-    # extract topic info
+    # extract topic info — first pass: fallback labels, terms, counts
     topic_info = topic_model.get_topic_info()
     topic_data = []
-    slug_counts = {}
 
     for _, row in topic_info.iterrows():
         topic_id = row["Topic"]
         if topic_id == -1:
             continue  # skip outlier cluster
 
-        label = row["Name"] if "Name" in row else f"Topic {topic_id}"
-        # clean up BERTopic's default naming (e.g., "0_word1_word2_word3")
-        if re.match(r"^\d+_", label):
-            parts = label.split("_")[1:5]
-            label = " ".join(parts).title()
-
-        slug = slugify(label)
-        # handle duplicate slugs
-        if slug in slug_counts:
-            slug_counts[slug] += 1
-            slug = f"{slug}-{slug_counts[slug]}"
-        else:
-            slug_counts[slug] = 0
+        # fallback label from BERTopic's c-TF-IDF top n-grams (used if LLM fails)
+        fallback_label = row["Name"] if "Name" in row else f"Topic {topic_id}"
+        if re.match(r"^\d+_", fallback_label):
+            parts = fallback_label.split("_")[1:5]
+            fallback_label = " ".join(parts).title()
 
         terms = [word for word, _ in topic_model.get_topic(topic_id)][:10]
         count = int(row["Count"])
 
         topic_data.append({
-            "label": label,
-            "slug": slug,
+            "label": fallback_label,
             "terms": terms,
             "paper_count": count,
             "bert_topic_id": topic_id,
         })
 
     print(f"Found {len(topic_data)} topics (excluding outliers)")
+
+    # collect representative paper titles per topic, sorted by assignment probability
+    titles_by_topic: dict[int, list[tuple[float, str]]] = {}
+    for i, (topic_id, prob_row) in enumerate(zip(topics, probs)):
+        if topic_id == -1:
+            continue
+        title = papers[i].get("title", "")
+        if title:
+            titles_by_topic.setdefault(topic_id, []).append((_topic_score(prob_row), title))
+
+    # LLM labeling pass — bounded concurrency to respect API rate limits
+    print(f"Generating LLM labels for {len(topic_data)} topics...")
+    sem = asyncio.Semaphore(10)
+
+    async def _label(topic):
+        sample_titles = sorted(
+            titles_by_topic.get(topic["bert_topic_id"], []),
+            key=lambda x: -x[0],
+        )[:8]
+        sample_titles = [t for _, t in sample_titles]
+        async with sem:
+            return await generate_topic_label(topic["terms"], sample_titles, topic["label"])
+
+    new_labels = await asyncio.gather(*(_label(t) for t in topic_data))
+    for topic, new_label in zip(topic_data, new_labels):
+        topic["label"] = new_label
+
+    # assign URL slugs with collision handling — must run after labels are finalized
+    slug_counts: dict[str, int] = {}
+    for topic in topic_data:
+        slug = slugify(topic["label"])
+        if slug in slug_counts:
+            slug_counts[slug] += 1
+            slug = f"{slug}-{slug_counts[slug]}"
+        else:
+            slug_counts[slug] = 0
+        topic["slug"] = slug
 
     # build paper-topic assignments with relevance scores
     assignments = []
@@ -205,12 +256,10 @@ async def run_clustering():
         matching = [t for t in topic_data if t["bert_topic_id"] == topic_id]
         if not matching:
             continue
-        score = float(prob_row) if isinstance(prob_row, (int, float)) else float(max(prob_row))
-        score = max(0.0, min(1.0, score))
         assignments.append({
             "paper_id": paper_ids[i],
             "slug": matching[0]["slug"],
-            "score": score,
+            "score": _topic_score(prob_row),
         })
 
     # save to database

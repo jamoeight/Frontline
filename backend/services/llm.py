@@ -72,8 +72,82 @@ Provide a clear, concise answer (3-5 sentences) with citations in [arXiv:XXXX.XX
     return await _call_openrouter(prompt)
 
 
-async def _call_openrouter(prompt: str) -> str:
+async def generate_topic_label(
+    terms: list[str],
+    sample_titles: list[str],
+    fallback: str,
+) -> str:
+    """Generate a short, distinctive label for a topic cluster.
+
+    Returns the cleaned LLM label, or `fallback` if the call fails, no API
+    key is configured, or the response is empty/oversized.
+    """
+    if not settings.openrouter_api_key:
+        return fallback
+
+    terms_text = ", ".join(terms[:10]) if terms else "(none)"
+    titles_text = "\n".join(f"- {t}" for t in sample_titles[:8] if t) or "(none)"
+
+    prompt = f"""You are an expert AI research librarian naming a cluster of arXiv papers.
+
+Generate a SHORT, DISTINCTIVE topic label (3 to 6 words) for the cluster below.
+
+Rules:
+- Use specific technical terminology that distinguishes this cluster from other AI/ML topics
+- Avoid generic filler: "model", "method", "approach", "framework", "data", "deep learning", "neural network", "task"
+- Use Title Case (e.g., "Diffusion Model Distillation")
+- No quotes, no trailing period, no explanation
+
+Top representative terms (from c-TF-IDF):
+{terms_text}
+
+Sample paper titles from this cluster:
+{titles_text}
+
+Output the label and nothing else."""
+
+    try:
+        # temperature=0 → near-deterministic labels run-to-run, so the same
+        # cluster gets the same name and slugs stay stable.
+        response = await _call_openrouter(prompt, temperature=0.0)
+    except (httpx.HTTPError, KeyError, ValueError) as e:
+        # HTTPError covers timeouts, network errors, non-2xx responses.
+        # KeyError/ValueError cover malformed JSON bodies returned with HTTP 200.
+        print(f"  topic label generation failed: {type(e).__name__}: {e}; using fallback")
+        return fallback
+
+    label = _clean_label(response)
+    # prompt asks for 3-6 words. Reject longer outputs — those are usually the
+    # model echoing a paper title instead of producing a topic name.
+    word_count = len(label.split())
+    if not label or word_count < 2 or word_count > 6:
+        print(f"  topic label rejected ({word_count} words): {label!r}; using fallback")
+        return fallback
+    return label
+
+
+def _clean_label(raw: str) -> str:
+    """Best-effort cleanup of a model-generated topic label."""
+    lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
+    if not lines:
+        return ""
+    label = lines[0]
+    for prefix in ("Label:", "Topic:", "Title:", "Name:", "Cluster:"):
+        if label.lower().startswith(prefix.lower()):
+            label = label[len(prefix):].strip()
+            break
+    return label.strip('"\'`*').rstrip(".,;:!").strip()
+
+
+async def _call_openrouter(prompt: str, temperature: float | None = None) -> str:
     """Make a chat completion request to the OpenRouter API."""
+
+    payload: dict = {
+        "model": settings.openrouter_model,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if temperature is not None:
+        payload["temperature"] = temperature
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
@@ -82,10 +156,7 @@ async def _call_openrouter(prompt: str) -> str:
                 "Authorization": f"Bearer {settings.openrouter_api_key}",
                 "Content-Type": "application/json",
             },
-            json={
-                "model": settings.openrouter_model,
-                "messages": [{"role": "user", "content": prompt}],
-            },
+            json=payload,
         )
         response.raise_for_status()
         data = response.json()
