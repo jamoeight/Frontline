@@ -161,3 +161,78 @@ export async function fetchStats(): Promise<StatsResponse> {
   const { data } = await api.get('/stats')
   return data
 }
+
+// State of the State — weekly cross-cluster synthesis briefing
+
+export interface BigMovement {
+  title: string
+  narrative: string
+  topic_slugs: string[]
+}
+
+export interface TopicNote {
+  slug: string
+  why: string
+}
+
+export interface CrossPollination {
+  topic_a_slug: string
+  topic_b_slug: string
+  shared_signal: string
+}
+
+export interface DispatchEntry {
+  if_you_work_on: string
+  also_watch_slugs: string[]
+  reason: string
+}
+
+export interface BriefingPrediction {
+  claim: string
+  testable_by: string
+  slugs: string[]
+}
+
+export interface CalibrationItem {
+  claim: string
+  verdict: string  // 'held' | 'partial' | 'missed'
+  evidence: string
+}
+
+export interface BriefingSections {
+  lede: string
+  big_movements: BigMovement[]
+  emerging: TopicNote[]
+  decelerating: TopicNote[]
+  cross_pollinations: CrossPollination[]
+  researcher_dispatch: DispatchEntry[]
+  open_questions: string[]
+  predictions: BriefingPrediction[]
+  calibration: { graded: CalibrationItem[] } | null
+}
+
+export interface BriefingResponse {
+  generated_on: string  // ISO date
+  model: string
+  sections: BriefingSections
+  topic_labels: Record<string, string>
+}
+
+export interface BriefingHistoryItem {
+  generated_on: string
+  lede: string
+}
+
+export interface BriefingHistoryResponse {
+  items: BriefingHistoryItem[]
+}
+
+export async function fetchBriefing(): Promise<BriefingResponse> {
+  const { data } = await api.get('/briefing')
+  return data
+}
+
+export async function fetchBriefingHistory(limit: number = 10): Promise<BriefingHistoryResponse> {
+  const { data } = await api.get('/briefing/history', { params: { limit } })
+  return data
+}

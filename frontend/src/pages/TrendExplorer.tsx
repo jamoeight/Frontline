@@ -10,10 +10,13 @@ import SearchBar from '../components/SearchBar'
 import {
   fetchStatus,
   fetchStats,
+  fetchBriefing,
   type StatusResponse,
   type StatsResponse,
+  type BriefingResponse,
 } from '../services/api'
 import './TrendExplorer.css'
+import './Briefing.css'
 
 type TimeWindow = 30 | 60 | 90
 type ChartMode = 'bubble' | 'heatmap' | 'line'
@@ -101,6 +104,11 @@ function TrendExplorer() {
     fetchStats().then(setCorpus).catch(() => {})
   }, [])
 
+  const [briefing, setBriefing] = useState<BriefingResponse | null>(null)
+  useEffect(() => {
+    fetchBriefing().then(setBriefing).catch(() => {})
+  }, [])
+
   const stats = useMemo(() => {
     const growthRates = topics
       .map((t) => t.latest_growth_rate)
@@ -142,6 +150,10 @@ function TrendExplorer() {
             <span className="masthead-issue-number">{issue}</span>
           </span>
           <span className="masthead-date eyebrow">{issueDate}</span>
+          <Link to="/briefing" className="masthead-help">
+            <span>The Briefing</span>
+            <span aria-hidden>↗</span>
+          </Link>
           <Link to="/help" className="masthead-help">
             <span>How this works</span>
             <span aria-hidden>↗</span>
@@ -150,6 +162,30 @@ function TrendExplorer() {
       </motion.header>
 
       <hr className="rule masthead-rule" />
+
+      {/* Briefing teaser — appears only after a briefing has been generated */}
+      {briefing && briefing.sections.lede && (
+        <motion.aside
+          className="briefing-teaser"
+          initial="hidden"
+          animate="show"
+          variants={fade}
+          custom={0.5}
+        >
+          <div>
+            <span className="eyebrow briefing-teaser-eyebrow">The Briefing · {briefing.generated_on}</span>
+            <p className="briefing-teaser-text">
+              {briefing.sections.lede.length > 220
+                ? briefing.sections.lede.slice(0, 220).trimEnd() + '…'
+                : briefing.sections.lede}
+            </p>
+          </div>
+          <Link to="/briefing" className="briefing-teaser-link">
+            <span>Read the briefing</span>
+            <span aria-hidden>↗</span>
+          </Link>
+        </motion.aside>
+      )}
 
       {/* Hero */}
       <section className="hero">

@@ -1,3 +1,4 @@
+import json
 import re
 
 import httpx
@@ -153,6 +154,156 @@ def _clean_label(raw: str) -> str:
     # a duplicate topic row that orphans the previous one.
     label = label.translate(_HYPHEN_TRANSLATION)
     return label.strip('"\'`*').rstrip(".,;:!").strip()
+
+
+async def generate_state_of_state(
+    topics: list[dict],
+    candidate_pairs: list[dict],
+    prior_briefing: dict | None,
+) -> dict:
+    """Synthesize a cross-cluster editorial briefing from the current corpus.
+
+    `topics` is a list of dicts with: slug, label, paper_count, week_papers,
+    growth_rate, acceleration, summary_general, representative_terms.
+    `candidate_pairs` is a list of dicts with: a_slug, a_label, b_slug, b_label,
+    similarity, similarity_delta — pre-computed from embeddings, the LLM ranks
+    and explains them rather than fabricating connections.
+    `prior_briefing`, if present, contains the previous run's `predictions` and
+    a `now_snapshot` (this week's topics) so the model can grade those
+    predictions as held / partial / missed with cited evidence.
+
+    Returns the parsed `sections` dict. Raises ValueError on parse failure;
+    callers should abort writing rather than store malformed output.
+    """
+
+    topics_md = "\n".join(
+        f"| {t['slug']} | {t['label']} | {t['paper_count']} | {t.get('week_papers', 0)} | "
+        f"{_fmt_pct(t.get('growth_rate'))} | {_fmt_pct(t.get('acceleration'))} | "
+        f"{', '.join((t.get('representative_terms') or [])[:6])} | "
+        f"{(t.get('summary_general') or '').replace('|', '/').replace(chr(10), ' ')[:240]} |"
+        for t in topics
+    )
+
+    pairs_md = "\n".join(
+        f"- {p['a_label']} ⇄ {p['b_label']} "
+        f"(similarity {p['similarity']:.3f}, Δ {p.get('similarity_delta', 0.0):+.3f})"
+        for p in candidate_pairs
+    ) or "- (none detected this cycle)"
+
+    if prior_briefing and prior_briefing.get("predictions"):
+        prior_block = (
+            "PRIOR PREDICTIONS (grade each as held / partial / missed using THIS WEEK'S table above):\n"
+            + "\n".join(
+                f"{i+1}. {p.get('claim', '')} "
+                f"[testable_by: {p.get('testable_by', 'unspecified')}; "
+                f"slugs: {', '.join(p.get('slugs', []))}]"
+                for i, p in enumerate(prior_briefing["predictions"])
+            )
+        )
+    else:
+        prior_block = "PRIOR PREDICTIONS: (none — this is the first briefing; omit `calibration` from output.)"
+
+    prompt = f"""You are the editor of "The Briefing," a weekly synthesis of AI research published alongside the Frontline arXiv tracker. Your readers are working AI researchers; they want signal, not flattery.
+
+CURRENT TOPICS (top by recent activity):
+
+| slug | label | total | this week | growth | accel | top terms | one-line summary |
+|---|---|---|---|---|---|---|---|
+{topics_md}
+
+CANDIDATE CROSS-CLUSTER CONVERGENCES (computed numerically from embedding centroids — pick the ones with a real, explainable shared signal; you may discard pairs that are spurious):
+{pairs_md}
+
+{prior_block}
+
+Write the briefing as a single JSON object with EXACTLY these keys:
+
+{{
+  "lede": "3-4 sentence executive paragraph naming what is actually happening across AI research this week. Specific, not generic.",
+  "big_movements": [
+    {{"title": "italic-worthy 4-8 word headline", "narrative": "2-3 sentences explaining the cross-cluster movement, naming techniques and why it matters", "topic_slugs": ["slug1", "slug2"]}}
+  ],
+  "emerging": [{{"slug": "slug", "why": "one sentence — what's new or accelerating"}}],
+  "decelerating": [{{"slug": "slug", "why": "one sentence — what's cooling and why"}}],
+  "cross_pollinations": [
+    {{"topic_a_slug": "slug", "topic_b_slug": "slug", "shared_signal": "the actual technique or question both clusters are converging on"}}
+  ],
+  "researcher_dispatch": [
+    {{"if_you_work_on": "concise area name", "also_watch_slugs": ["slug"], "reason": "one sentence — why this is worth a working researcher's time"}}
+  ],
+  "open_questions": ["concrete unresolved questions surfaced by gaps in the corpus"],
+  "predictions": [
+    {{"claim": "falsifiable claim about the next 1-2 weeks (e.g., 'paper count in <slug> will exceed X' or 'we expect convergence between A and B')", "testable_by": "next briefing", "slugs": ["slug"]}}
+  ],
+  "calibration": {{
+    "graded": [
+      {{"claim": "verbatim prior claim", "verdict": "held|partial|missed", "evidence": "one sentence citing this week's data"}}
+    ]
+  }}
+}}
+
+Rules:
+- 2 to 4 big_movements, 3 to 6 emerging, 3 to 6 decelerating, up to 4 cross_pollinations, 3 to 5 researcher_dispatch entries, 3 to 5 open_questions, 3 to 5 predictions.
+- Only use slugs that appear in the table above. Never invent slugs.
+- Be specific. "Models are getting bigger" is not a movement. "Sub-1B reasoning models matching 7B baselines via process-supervised RL" is.
+- Predictions must be falsifiable from the next briefing's table.
+- If there are no PRIOR PREDICTIONS, omit the `calibration` key entirely.
+- Output JSON only. No prose before or after. No markdown code fences.
+"""
+
+    raw = await _call_openrouter(prompt, temperature=0.2)
+    return _parse_json_object(raw)
+
+
+def _fmt_pct(v) -> str:
+    if v is None:
+        return "—"
+    try:
+        return f"{float(v) * 100:+.0f}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _parse_json_object(text: str) -> dict:
+    """Pull the first balanced JSON object out of a response and parse it.
+
+    Models sometimes wrap output in ```json fences or prose despite instructions;
+    strip those before parsing. Raises ValueError if no object is found or it
+    fails to parse — caller should treat that as a generation failure.
+    """
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+
+    start = stripped.find("{")
+    if start == -1:
+        raise ValueError("no JSON object in LLM response")
+
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(start, len(stripped)):
+        ch = stripped[i]
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return json.loads(stripped[start : i + 1])
+
+    raise ValueError("unterminated JSON object in LLM response")
 
 
 async def _call_openrouter(prompt: str, temperature: float | None = None) -> str:

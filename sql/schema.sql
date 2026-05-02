@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- Created first because topics references it via FK
 CREATE TABLE pipeline_runs (
     id                  SERIAL          PRIMARY KEY,
-    run_type            VARCHAR(30)     NOT NULL CHECK (run_type IN ('ingest', 'embed', 'cluster', 'summarize', 'metrics')),
+    run_type            VARCHAR(30)     NOT NULL CHECK (run_type IN ('ingest', 'embed', 'cluster', 'summarize', 'metrics', 'state_of_state')),
     status              VARCHAR(20)     NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed')),
     paper_count         INTEGER         DEFAULT 0,
     processing_time_ms  INTEGER,
@@ -90,3 +90,23 @@ CREATE TRIGGER trg_papers_updated_at
 CREATE TRIGGER trg_topics_updated_at
     BEFORE UPDATE ON topics
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- State of the State briefings: a daily LLM-synthesized cross-cluster digest.
+-- One row per generation cycle (UNIQUE on generated_on, upsert on re-run).
+-- The `sections` JSONB holds the structured editorial output (lede,
+-- big_movements, emerging, decelerating, cross_pollinations,
+-- researcher_dispatch, open_questions, predictions, calibration).
+-- `input_snapshot` preserves the topic+metrics rows fed to the prompt so the
+-- next run can grade the prior run's predictions.
+CREATE TABLE state_of_state (
+    id                  SERIAL          PRIMARY KEY,
+    generated_on        DATE            NOT NULL,
+    pipeline_run_id     INTEGER         REFERENCES pipeline_runs(id) ON DELETE SET NULL,
+    model               VARCHAR(100)    NOT NULL,
+    sections            JSONB           NOT NULL,
+    input_snapshot      JSONB           NOT NULL,
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT now(),
+    UNIQUE (generated_on)
+);
+
+CREATE INDEX idx_state_of_state_generated_on ON state_of_state (generated_on DESC);
