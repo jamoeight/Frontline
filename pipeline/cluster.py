@@ -41,9 +41,16 @@ def _topic_score(prob_row) -> float:
     return max(0.0, min(1.0, score))
 
 
+_DASH_CHARS = "‐‑‒–—−"  # unicode dashes that should slugify to ASCII '-'
+
+
 def slugify(label: str) -> str:
     """Convert a topic label to a URL-friendly slug."""
     slug = label.lower().strip()
+    # Normalise unicode dashes first so they survive the [^a-z0-9\s-] filter
+    # below as a real hyphen instead of being stripped (which collapses
+    # 'Low‑Rank' → 'lowrank' and creates a duplicate-topic orphan).
+    slug = slug.translate(str.maketrans({c: "-" for c in _DASH_CHARS}))
     slug = re.sub(r"[^a-z0-9\s-]", "", slug)
     slug = re.sub(r"[\s_]+", "-", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
@@ -276,6 +283,23 @@ async def run_clustering():
     async with session_factory() as session:
         await save_topics(session, topic_data)
         await save_paper_topics(session, assignments, paper_ids)
+
+    # Garbage-collect topic rows whose papers were all reassigned to other
+    # clusters this run. Without this, old topics linger with stale
+    # paper_count and surface on the dashboard with placeholder summaries.
+    # CASCADE drops their stale trend_metrics rows too.
+    async with session_factory() as session:
+        result = await session.execute(
+            text(
+                "DELETE FROM topics t "
+                "WHERE NOT EXISTS (SELECT 1 FROM paper_topics pt WHERE pt.topic_id = t.id) "
+                "RETURNING id"
+            )
+        )
+        orphan_ids = [r[0] for r in result.fetchall()]
+        await session.commit()
+    if orphan_ids:
+        print(f"Removed {len(orphan_ids)} orphan topic rows: {orphan_ids}")
 
     await engine.dispose()
 

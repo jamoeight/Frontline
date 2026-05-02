@@ -1,3 +1,5 @@
+import re
+
 import httpx
 from dataclasses import dataclass
 
@@ -126,6 +128,16 @@ Output the label and nothing else."""
     return label
 
 
+_HYPHEN_TRANSLATION = str.maketrans({
+    "‐": "-",  # hyphen
+    "‑": "-",  # non-breaking hyphen
+    "‒": "-",  # figure dash
+    "–": "-",  # en dash
+    "—": "-",  # em dash
+    "−": "-",  # minus sign
+})
+
+
 def _clean_label(raw: str) -> str:
     """Best-effort cleanup of a model-generated topic label."""
     lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
@@ -136,6 +148,10 @@ def _clean_label(raw: str) -> str:
         if label.lower().startswith(prefix.lower()):
             label = label[len(prefix):].strip()
             break
+    # Normalise Unicode dashes to ASCII so two LLM-generated labels that
+    # differ only in dash style produce the same slug, instead of creating
+    # a duplicate topic row that orphans the previous one.
+    label = label.translate(_HYPHEN_TRANSLATION)
     return label.strip('"\'`*').rstrip(".,;:!").strip()
 
 
@@ -169,24 +185,42 @@ async def _call_openrouter(prompt: str, temperature: float | None = None) -> str
         return content
 
 
+_HEADER_RE = re.compile(
+    r"^(?:#{2,}\s*|\*+\s*)?"
+    r"(technical(?:\s+summary)?|general(?:\s+summary)?|prediction)"
+    r"\s*(?:\*+|:)?\s*$",
+    re.IGNORECASE,
+)
+
+
 def _parse_summaries(text: str) -> TopicSummaries:
-    """Parse the LLM response into three summary sections."""
+    """Parse the LLM response into three summary sections.
 
-    technical = ""
-    general = ""
-    prediction = ""
+    Tolerates several markdown header styles the model occasionally uses
+    instead of the requested `## Header`: `**Header**`, `### Header`,
+    `Header:`, etc.
+    """
 
-    sections = text.split("## ")
-    for section in sections:
-        lower = section.lower()
-        content = section.split("\n", 1)[1].strip() if "\n" in section else ""
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
 
-        if lower.startswith("technical"):
-            technical = content
-        elif lower.startswith("general"):
-            general = content
-        elif lower.startswith("prediction"):
-            prediction = content
+    for line in text.splitlines():
+        m = _HEADER_RE.match(line.strip())
+        if m:
+            name = m.group(1).lower()
+            if "technical" in name:
+                current = "technical"
+            elif "general" in name:
+                current = "general"
+            else:
+                current = "prediction"
+            sections.setdefault(current, [])
+        elif current is not None:
+            sections.setdefault(current, []).append(line)
+
+    technical = "\n".join(sections.get("technical", [])).strip()
+    general = "\n".join(sections.get("general", [])).strip()
+    prediction = "\n".join(sections.get("prediction", [])).strip()
 
     # If none of the expected headers parsed, the response is unusable.
     # Raise so the caller's except block skips the DB write and preserves
