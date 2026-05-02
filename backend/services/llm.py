@@ -160,7 +160,13 @@ async def _call_openrouter(prompt: str, temperature: float | None = None) -> str
         )
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"]["content"]
+        # Free-tier providers occasionally return HTTP 200 with empty content
+        # (rate-limit/provider-failover). Treat as a hard failure so callers'
+        # except blocks trigger instead of silently writing placeholder text.
+        if not content or not content.strip():
+            raise ValueError("OpenRouter returned empty content")
+        return content
 
 
 def _parse_summaries(text: str) -> TopicSummaries:
@@ -181,6 +187,12 @@ def _parse_summaries(text: str) -> TopicSummaries:
             general = content
         elif lower.startswith("prediction"):
             prediction = content
+
+    # If none of the expected headers parsed, the response is unusable.
+    # Raise so the caller's except block skips the DB write and preserves
+    # the previous summary instead of clobbering it with placeholder text.
+    if not technical and not general and not prediction:
+        raise ValueError("LLM response missing all three summary sections")
 
     return TopicSummaries(
         technical=technical or "Summary not available.",
