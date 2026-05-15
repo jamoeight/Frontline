@@ -19,8 +19,17 @@ class TopicSummaries:
 async def generate_summaries(
     topic_label: str,
     abstracts: list[str],
-) -> TopicSummaries:
-    """Send a batch of abstracts to OpenRouter and get back three summary variants."""
+) -> TopicSummaries | None:
+    """Send a batch of abstracts to OpenRouter and get back three summary variants.
+
+    Returns None on any failure (network error, empty/malformed response,
+    missing API key). Callers should treat None as "skip the DB write" so a
+    transient OpenRouter failure doesn't clobber a good existing summary
+    with placeholder text.
+    """
+    if not settings.openrouter_api_key:
+        print(f"  summary skipped: no OPENROUTER_API_KEY")
+        return None
 
     abstracts_text = "\n\n---\n\n".join(abstracts[:30])
 
@@ -43,8 +52,16 @@ Write 2-3 sentences for a general audience. Explain what this research area is a
 ## Prediction
 Write 2-3 sentences predicting where this research area is heading in the near term based on the trends in these papers. Note: this is an AI-generated prediction and may not be accurate."""
 
-    response = await _call_openrouter(prompt)
-    return _parse_summaries(response)
+    try:
+        response = await _call_openrouter(prompt)
+        return _parse_summaries(response)
+    except (httpx.HTTPError, KeyError, ValueError) as e:
+        # HTTPError: timeouts, network errors, non-2xx responses.
+        # KeyError: malformed JSON body (missing "choices" / "content").
+        # ValueError: empty content, or _parse_summaries couldn't find all
+        # three sections.
+        print(f"  summary generation failed: {type(e).__name__}: {e}; preserving existing summary")
+        return None
 
 
 async def generate_query_answer(
@@ -373,14 +390,14 @@ def _parse_summaries(text: str) -> TopicSummaries:
     general = "\n".join(sections.get("general", [])).strip()
     prediction = "\n".join(sections.get("prediction", [])).strip()
 
-    # If none of the expected headers parsed, the response is unusable.
-    # Raise so the caller's except block skips the DB write and preserves
-    # the previous summary instead of clobbering it with placeholder text.
-    if not technical and not general and not prediction:
-        raise ValueError("LLM response missing all three summary sections")
+    # Require all three sections. A partial response shouldn't be allowed to
+    # overwrite good existing text in any of the three columns with
+    # "Summary not available." placeholders — fail the whole call instead
+    # and let the caller preserve the previous summary.
+    missing = [name for name, val in
+               (("technical", technical), ("general", general), ("prediction", prediction))
+               if not val]
+    if missing:
+        raise ValueError(f"LLM response missing sections: {', '.join(missing)}")
 
-    return TopicSummaries(
-        technical=technical or "Summary not available.",
-        general=general or "Summary not available.",
-        prediction=prediction or "Prediction not available. Note: predictions are AI-generated and may not be accurate.",
-    )
+    return TopicSummaries(technical=technical, general=general, prediction=prediction)

@@ -63,31 +63,30 @@ async def run_summarization():
 
         print(f"  [{i+1}/{len(topics)}] {topic['label']} ({len(abstracts)} abstracts)...")
 
-        try:
-            summaries = await generate_summaries(topic["label"], abstracts)
-
-            async with session_factory() as session:
-                await session.execute(
-                    text("""
-                        UPDATE topics
-                        SET summary_technical = :technical,
-                            summary_general = :general,
-                            summary_prediction = :prediction,
-                            updated_at = now()
-                        WHERE id = :id
-                    """),
-                    {
-                        "id": topic["id"],
-                        "technical": summaries.technical,
-                        "general": summaries.general,
-                        "prediction": summaries.prediction,
-                    },
-                )
-                await session.commit()
-
-        except Exception as e:
-            print(f"    ERROR generating summary: {e}")
+        summaries = await generate_summaries(topic["label"], abstracts)
+        if summaries is None:
+            # generate_summaries logged the reason. Skip the UPDATE so the
+            # topic's previous summaries stay in place.
             continue
+
+        async with session_factory() as session:
+            await session.execute(
+                text("""
+                    UPDATE topics
+                    SET summary_technical = :technical,
+                        summary_general = :general,
+                        summary_prediction = :prediction,
+                        updated_at = now()
+                    WHERE id = :id
+                """),
+                {
+                    "id": topic["id"],
+                    "technical": summaries.technical,
+                    "general": summaries.general,
+                    "prediction": summaries.prediction,
+                },
+            )
+            await session.commit()
 
     await engine.dispose()
 
